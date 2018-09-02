@@ -1,0 +1,30 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${IDF_PATH}/../xtensa-esp32-elf/xtensa-esp32-elf/include/**",
+                "${IDF_PATH}/components/freertos/include",
+                "${IDF_PATH}/components/esp32/include",
+                "${IDF_PATH}/components/heap/include",
+                "${IDF_PATH}/components/soc/include",
+                "${IDF_PATH}/components/log/include",
+                "${IDF_PATH}/components/driver/include",
+                "${IDF_PATH}/components/spi_flash/include",
+                "${IDF_PATH}/components/soc/esp32/include",
+                "${IDF_PATH}/components/arduino/cores/esp32"
+            ],
+            "defines": [],
+            "macFrameworkPath": [
+                "/System/Library/Frameworks",
+                "/Library/Frameworks"
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}
