@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "esp_task_wdt.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "sdkconfig.h"
@@ -65,7 +66,19 @@ static int64_t getMicrotime(){
 
 static uint64_t ptime;
 
+/*
+ * Macro to check the outputs of TWDT functions and trigger an abort if an
+ * incorrect code is returned.
+ */
+#define CHECK_ERROR_CODE(returned, expected) ({                        \
+            if(returned != expected){                                  \
+                printf("TWDT ERROR\n");                                \
+                abort();                                               \
+            }                                                          \
+})
 
+#define TWDT_TIMEOUT_S          3
+#define TASK_RESET_PERIOD_S     2
 
 typedef struct
 {
@@ -287,9 +300,13 @@ void send_line(int ypos, uint16_t *linedata)
 
 static void display_pretty_colors(spi_device_handle_t spi)
 {
+    //Subscribe this task to TWDT, then check if it is subscribed
+    CHECK_ERROR_CODE(esp_task_wdt_add(NULL), ESP_OK);
+    CHECK_ERROR_CODE(esp_task_wdt_status(NULL), ESP_OK);
+
     uint16_t *lines[2];
     //Allocate memory for the pixel buffers
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < BACK_BUFFER; i++)
     {
         lines[i] = heap_caps_malloc(320 * PARALLEL_LINES * sizeof(uint16_t), MALLOC_CAP_DMA);
         assert(lines[i] != NULL);
@@ -309,52 +326,23 @@ static void display_pretty_colors(spi_device_handle_t spi)
             for( int sy=0; sy<PARALLEL_LINES; sy++ ) {
                 int yy = y + sy;
                 for (x = 0; x < 320; x++) {
-                    if( y < 120 ) {
-                        if( x < 50 ) {
-                            lines[calc_line][(sy*320)+x] = 0x1F; // green (5)
-                        }
-                        else if( x < 100 ) {
-                            lines[calc_line][(sy*320)+x] = 0x3FF;
-                        }
-                        else if( x < 150 ) {
-                            lines[calc_line][(sy*320)+x] = 0x3E0; // red (5)
-                        }
-                        else if( x < 200 ) {
-                            lines[calc_line][(sy*320)+x] = 0xFFE0;
-                        }
-                        else if( x < 250 ) {
-                            lines[calc_line][(sy*320)+x] = 0xFC00; // blue (6)
-                        }
-                        else if( x < 300 ) {
-                            lines[calc_line][(sy*320)+x] = 0xFC1F;
-                        }
-                        else {
-                            lines[calc_line][(sy*320)+x] = 0xFFFF;
-                        }
+                    if( yy < 60 ) {
+                        int r = (x * 0x1F) / 320;
+                        lines[calc_line][(sy*320)+x] = r << 3;
+                    }
+                    else if( yy < 120 ) {
+                        int g = (x * 0x3F) / 320;
+                        lines[calc_line][(sy*320)+x] = (g >> 3) + ((g << 13) & 0xE000);
+                    }
+                    else if( yy < 180 ) {
+                        int b = (x * 0x1F) / 320;
+                        lines[calc_line][(sy*320)+x] =  b << 8;
                     }
                     else {
-                        if( x < 50 ) {
-                            lines[calc_line][(sy*320)+x] = 0x07; // green (5)
-                        }
-                        else if( x < 100 ) {
-                            lines[calc_line][(sy*320)+x] = 0x0E7;
-                        }
-                        else if( x < 150 ) {
-                            lines[calc_line][(sy*320)+x] = 0x0E0; // red (5)
-                        }
-                        else if( x < 200 ) {
-                            lines[calc_line][(sy*320)+x] = 0x1CE0;
-                        }
-                        else if( x < 250 ) {
-                            lines[calc_line][(sy*320)+x] = 0x1C00; // blue (6)
-                        }
-                        else if( x < 300 ) {
-                            lines[calc_line][(sy*320)+x] = 0x1C07;
-                        }
-                        else {
-                            lines[calc_line][(sy*320)+x] = 0x7FFF;
-                        }
-
+                        int r = (x * 0x1F) / 320;
+                        int g = (x * 0x3F) / 320;
+                        int b = (x * 0x1F) / 320;
+                        lines[calc_line][(sy*320)+x] = (r << 3) + ((g >> 3) + ((g << 13) & 0xE000)) + (b << 8);
                     }
                 }
             }
@@ -364,18 +352,28 @@ static void display_pretty_colors(spi_device_handle_t spi)
 
 
             //Finish up the sending process of the previous line, if any
-            calc_line = (calc_line == 1) ? 0 : 1;
+
+            if( BACK_BUFFER > 1 )
+                calc_line = (calc_line == 1) ? 0 : 1;
+
             //The line set is queued up for sending now; the actual sending happens in the
             //background. We can go on to calculate the next line set as long as we do not
             //touch line[sending_line]; the SPI sending process is still reading from that.
         }
         printf("%.1f\n",1000000.f/(getMicrotime()-ptime));
         ptime = getMicrotime();
+
+        CHECK_ERROR_CODE(esp_task_wdt_reset(), ESP_OK);  //Comment this line to trigger a TWDT timeout        
     }
 }
 
 void vTask(void*  prm) {
+    CHECK_ERROR_CODE(esp_task_wdt_add(NULL), ESP_OK);
+    CHECK_ERROR_CODE(esp_task_wdt_status(NULL), ESP_OK);
+
     while(1){
+        CHECK_ERROR_CODE(esp_task_wdt_reset(), ESP_OK);  //Comment this line to trigger a TWDT timeout
+        vTaskDelay(pdMS_TO_TICKS(TASK_RESET_PERIOD_S * 1000));
     }
 }
 
@@ -424,6 +422,18 @@ void app_main()
 #if PROCESS_NUM!=1
     xTaskCreatePinnedToCore(vTask,"vTask", 4096,  NULL,5,&thread1,1);
 #endif    
+
+    printf("Initialize TWDT\n");
+    //Initialize or reinitialize TWDT
+    CHECK_ERROR_CODE(esp_task_wdt_init(TWDT_TIMEOUT_S, false), ESP_OK);
+
+    //Subscribe Idle Tasks to TWDT if they were not subscribed at startup
+#ifndef CONFIG_TASK_WDT_CHECK_IDLE_TASK_CPU0
+    esp_task_wdt_add(xTaskGetIdleTaskHandleForCPU(0));
+#endif
+#ifndef CONFIG_TASK_WDT_CHECK_IDLE_TASK_CPU1
+    esp_task_wdt_add(xTaskGetIdleTaskHandleForCPU(1));
+#endif
 
     /* //Go do nice stuff. */
     /* display_pretty_colors(spi); */

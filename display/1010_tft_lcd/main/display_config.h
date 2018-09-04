@@ -13,6 +13,7 @@ const static int window_height = 240;
   #define PROCESSNUM 2
   #define DRAW_NLINES (20)
   #define MAXPROC_POLYNUM (1000)
+  #define BACK_BUFFER 2
 #else
 //  #define OUTPUTTERMINAL
   //#define USE_SDL
