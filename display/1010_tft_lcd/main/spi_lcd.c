@@ -327,15 +327,15 @@ static void display_pretty_colors(spi_device_handle_t spi)
                 int yy = y + sy;
                 for (x = 0; x < 320; x++) {
                     if( yy < 60 ) {
-                        int r = (x * 0x1F) / 320;
+                        int r = (x * 0x1F) / 320; // R 5 bits
                         lines[calc_line][(sy*320)+x] = r << 3;
                     }
                     else if( yy < 120 ) {
-                        int g = (x * 0x3F) / 320;
+                        int g = (x * 0x3F) / 320; // G 6 bits
                         lines[calc_line][(sy*320)+x] = (g >> 3) + ((g << 13) & 0xE000);
                     }
                     else if( yy < 180 ) {
-                        int b = (x * 0x1F) / 320;
+                        int b = (x * 0x1F) / 320; // B 5 bits
                         lines[calc_line][(sy*320)+x] =  b << 8;
                     }
                     else {
