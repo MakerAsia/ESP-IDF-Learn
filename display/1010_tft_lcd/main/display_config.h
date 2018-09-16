@@ -12,7 +12,7 @@ const static int window_height = 240;
   #define ILI9341
   #define PROCESSNUM 2
   #define DRAW_NLINES (20)
-  #define MAXPROC_POLYNUM (1000)
+  #define MAXPROC_POLYNUM (960)
   #define BACK_BUFFER 2
 #else
 //  #define OUTPUTTERMINAL

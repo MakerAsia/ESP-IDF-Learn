@@ -25,8 +25,8 @@
 #define BUTTON2 37
 #define BUTTON3 38
 
-#define _TTGO_ETC 1
-//#define _KIDBRIGHT  1
+//#define _TTGO_ETC 1
+#define _KIDBRIGHT  1
 
 #ifdef _TTGO_ETC
 #define PIN_NUM_MISO 12
@@ -363,7 +363,7 @@ static void display_pretty_colors(spi_device_handle_t spi)
         printf("%.1f\n",1000000.f/(getMicrotime()-ptime));
         ptime = getMicrotime();
 
-        CHECK_ERROR_CODE(esp_task_wdt_reset(), ESP_OK);  //Comment this line to trigger a TWDT timeout        
+        CHECK_ERROR_CODE(esp_task_wdt_reset(), ESP_OK);  //Comment this line to trigger a TWDT timeout       
     }
 }
 
